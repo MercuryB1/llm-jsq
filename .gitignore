@@ -1,0 +1,4 @@
+# Python 忽略项
+__pycache__/
+*.pyc
+*.pyo
