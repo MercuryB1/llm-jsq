@@ -116,11 +116,11 @@ def annealing_loop(
         logger.info(f"smoothing layer {i}")
         smooth_layer(layer, act_scales, 0.8)
         
-        # logger.info(f"clipping layuer {i}")
-        # clip_list = auto_clip_block(layer, w_bits=args.w_bits, input_feat=inps, n_sample_token=args.nsamples)
+        logger.info(f"clipping layuer {i}")
+        clip_list = auto_clip_block(layer, w_bits=args.w_bits, input_feat=input_feat, n_sample_token=args.nsamples)
         
-        # logger.info(f"applying clip for layer {i}")
-        # apply_clip(layer, clip_list)
+        logger.info(f"applying clip for layer {i}")
+        apply_clip(layer, clip_list)
 
         logger.info(f"quantizing layer {i}")
         quantize_layer(layer, w_bits=args.w_bits, a_bits=args.a_bits, quantize_bmm_input=True)

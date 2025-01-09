@@ -6,6 +6,9 @@ from .utils import get_op_by_name
 
 __all__ = ['auto_clip_block']
 
+
+
+
 @torch.no_grad()
 def auto_clip_layer(
     w, input_feat, w_bits, n_grid=20, max_shrink=0.5, n_sample_token=512
@@ -40,7 +43,7 @@ def auto_clip_layer(
             max_val = org_max_val * (1 - i_s / n_grid)
             min_val = -max_val
             cur_w = torch.clamp(w, min_val, max_val)
-            q_w = quantize_weight_per_tensor_absmax(cur_w, n_bits=w_bits)
+            q_w = quantize_weight_per_tensor_absmax(cur_w, w_bits=w_bits)
             cur_out = (input_feat * q_w).sum(dim=-1)
 
             # co, 1, n_group, 1
@@ -59,6 +62,16 @@ def auto_clip_layer(
     gc.collect()
     torch.cuda.empty_cache()
     return best_max_val.squeeze(1)
+
+
+
+@torch.no_grad()
+def anneal_clip_layer(
+    w, input_feat, w_bits, n_grid=20, max_shrink=0.5, n_sample_token=512
+):
+    assert w.dim() == 2
+    
+    
     
     
 @torch.no_grad()
@@ -68,17 +81,17 @@ def auto_clip_block(
     named_linears = {
         name: m for name, m in module.named_modules() if isinstance(m, nn.Linear)
     }
-    clip_list = {}
+    clip_list = []
     for name in named_linears:
         # due to qk bmm, it is hard to clip precisely
         if any([_ in name for _ in ["q_", "k_", "query", "key", "Wqkv"]]):
             continue
-        named_linears[name].cuda()
+        named_linears[name]
         max_val = auto_clip_layer(
             named_linears[name].weight, input_feat[name], w_bits=w_bits, n_sample_token=n_sample_token
         )
         clip_list.append((name, max_val))
-        named_linears[name].cpu()
+        named_linears[name]
     return clip_list
     
     
@@ -86,10 +99,8 @@ def auto_clip_block(
 def apply_clip(module, clip_list):
     for name, max_val in clip_list:
         layer = get_op_by_name(module, name)
-        layer.cuda()
         max_val = max_val.to(layer.weight.device)
         org_shape = layer.weight.shape
         layer.weight.data = layer.weight.data.reshape(*max_val.shape[:2], -1)
         layer.weight.data = torch.clamp(layer.weight.data, -max_val, max_val)
         layer.weight.data = layer.weight.data.reshape(org_shape)
-        layer.cpu()

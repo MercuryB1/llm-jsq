@@ -214,7 +214,7 @@ def auto_prune_layer_jsq(pruning_method, rho, w, input_feat, sparsity_ratio, pru
 
         # 初始化敏感性矩阵
         ss = torch.zeros_like(w, device=w.device)  # 初始化敏感性矩阵
-
+        
         # 遍历每个权重行并计算影响
         for i in range(cout):
             column_out = original_out[:, i]  # 获取当前列的原始输出
@@ -231,7 +231,34 @@ def auto_prune_layer_jsq(pruning_method, rho, w, input_feat, sparsity_ratio, pru
             
         ss[torch.isinf(ss)] = 100
     elif pruning_method == "jsq_v2":
-        pass
+        activation = input_feat[0].to(w.device)
+        cout, cin = w.shape
+
+        # 计算原始输出矩阵
+        original_out = activation @ w.T  # (batch, cin) @ (cin, cout) -> (batch, cout)
+
+        # 初始化敏感性矩阵
+        ss = torch.zeros_like(w, device=w.device)
+
+        # 遍历每个权重位置
+        for i in range(cout):
+            logger.info(f'i is {i}')
+            for j in range(cin):
+                # 创建一个拷贝并将权重置零
+                modified_w = w.clone()
+                modified_w[i, j] = 0  # 将指定权重置零
+
+                # 计算修改后的输出
+                modified_out = activation @ modified_w.T  # (batch, cout)
+
+                # 计算每行的最大值与最小值的差
+                row_diff = torch.max(modified_out, dim=1)[0] - torch.min(modified_out, dim=1)[0]  # (batch,)
+
+                # 求和并存储到敏感性矩阵
+                ss[i, j] = row_diff.sum()
+
+            # 替换无穷值
+            ss[torch.isinf(ss)] = 100
     else:
         raise NotImplementedError(f"not supported method")
     
